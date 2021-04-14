@@ -250,7 +250,7 @@ fn swap_exact_collateral_in_auction_to_stable_work() {
 fn create_collateral_auctions_work() {
 	ExtBuilder::default().build().execute_with(|| {
 		assert_ok!(Currencies::deposit(BTC, &CDPTreasuryModule::account_id(), 10000));
-		assert_eq!(CDPTreasuryModule::collateral_auction_maximum_size(BTC), 0);
+		assert_eq!(CDPTreasuryModule::expected_collateral_auction_size(BTC), 0);
 		assert_noop!(
 			CDPTreasuryModule::create_collateral_auctions(BTC, 10001, 1000, ALICE, true),
 			Error::<Runtime>::CollateralNotEnough,
@@ -264,7 +264,7 @@ fn create_collateral_auctions_work() {
 		assert_eq!(TOTAL_COLLATERAL_IN_AUCTION.with(|v| *v.borrow_mut()), 1000);
 
 		// set collateral auction maximum size
-		assert_ok!(CDPTreasuryModule::set_collateral_auction_maximum_size(
+		assert_ok!(CDPTreasuryModule::set_expected_collateral_auction_size(
 			Origin::signed(1),
 			BTC,
 			300
@@ -297,54 +297,43 @@ fn create_collateral_auctions_work() {
 }
 
 #[test]
-fn auction_surplus_work() {
-	ExtBuilder::default().build().execute_with(|| {
-		assert_noop!(CDPTreasuryModule::auction_surplus(Origin::signed(5), 100), BadOrigin,);
-		assert_noop!(
-			CDPTreasuryModule::auction_surplus(Origin::signed(1), 100),
-			Error::<Runtime>::SurplusPoolNotEnough,
-		);
-		assert_ok!(CDPTreasuryModule::on_system_surplus(100));
-		assert_eq!(TOTAL_SURPLUS_AUCTION.with(|v| *v.borrow_mut()), 0);
-		assert_ok!(CDPTreasuryModule::auction_surplus(Origin::signed(1), 100));
-		assert_eq!(TOTAL_SURPLUS_AUCTION.with(|v| *v.borrow_mut()), 1);
-	});
-}
-
-#[test]
-fn auction_debit_work() {
-	ExtBuilder::default().build().execute_with(|| {
-		assert_noop!(CDPTreasuryModule::auction_debit(Origin::signed(5), 100, 200), BadOrigin,);
-		assert_noop!(
-			CDPTreasuryModule::auction_debit(Origin::signed(1), 100, 200),
-			Error::<Runtime>::DebitPoolNotEnough,
-		);
-		assert_ok!(CDPTreasuryModule::on_system_debit(100));
-		assert_eq!(TOTAL_DEBIT_AUCTION.with(|v| *v.borrow_mut()), 0);
-		assert_ok!(CDPTreasuryModule::auction_debit(Origin::signed(1), 100, 200));
-		assert_eq!(TOTAL_DEBIT_AUCTION.with(|v| *v.borrow_mut()), 1);
-	});
-}
-
-#[test]
-fn set_collateral_auction_maximum_size_work() {
+fn set_expected_collateral_auction_size_work() {
 	ExtBuilder::default().build().execute_with(|| {
 		System::set_block_number(1);
-		assert_eq!(CDPTreasuryModule::collateral_auction_maximum_size(BTC), 0);
+		assert_eq!(CDPTreasuryModule::expected_collateral_auction_size(BTC), 0);
 		assert_noop!(
-			CDPTreasuryModule::set_collateral_auction_maximum_size(Origin::signed(5), BTC, 200),
+			CDPTreasuryModule::set_expected_collateral_auction_size(Origin::signed(5), BTC, 200),
 			BadOrigin
 		);
-		assert_ok!(CDPTreasuryModule::set_collateral_auction_maximum_size(
+		assert_ok!(CDPTreasuryModule::set_expected_collateral_auction_size(
 			Origin::signed(1),
 			BTC,
 			200
 		));
 
-		let update_collateral_auction_maximum_size_event =
-			Event::cdp_treasury(crate::Event::CollateralAuctionMaximumSizeUpdated(BTC, 200));
+		let update_expected_collateral_auction_size_event =
+			Event::cdp_treasury(crate::Event::ExpectedCollateralAuctionSizeUpdated(BTC, 200));
 		assert!(System::events()
 			.iter()
-			.any(|record| record.event == update_collateral_auction_maximum_size_event));
+			.any(|record| record.event == update_expected_collateral_auction_size_event));
+	});
+}
+
+#[test]
+fn extract_surplus_to_treasury_work() {
+	ExtBuilder::default().build().execute_with(|| {
+		assert_ok!(CDPTreasuryModule::on_system_surplus(1000));
+		assert_eq!(CDPTreasuryModule::surplus_pool(), 1000);
+		assert_eq!(Currencies::free_balance(AUSD, &CDPTreasuryModule::account_id()), 1000);
+		assert_eq!(Currencies::free_balance(AUSD, &TreasuryAccount::get()), 0);
+
+		assert_noop!(
+			CDPTreasuryModule::extract_surplus_to_treasury(Origin::signed(5), 200),
+			BadOrigin
+		);
+		assert_ok!(CDPTreasuryModule::extract_surplus_to_treasury(Origin::signed(1), 200));
+		assert_eq!(CDPTreasuryModule::surplus_pool(), 800);
+		assert_eq!(Currencies::free_balance(AUSD, &CDPTreasuryModule::account_id()), 800);
+		assert_eq!(Currencies::free_balance(AUSD, &TreasuryAccount::get()), 200);
 	});
 }

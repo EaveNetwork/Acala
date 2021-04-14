@@ -16,7 +16,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use crate::{dollar, CdpTreasury, Currencies, CurrencyId, Runtime, KAR, KSM, KUSD};
+use crate::{dollar, CdpTreasury, Currencies, CurrencyId, Runtime, KSM, KUSD};
 
 use frame_system::RawOrigin;
 use module_support::CDPTreasury;
@@ -29,22 +29,18 @@ runtime_benchmarks! {
 
 	_ {}
 
-	auction_surplus {
-		CdpTreasury::on_system_surplus(100 * dollar(KUSD))?;
-	}: _(RawOrigin::Root, 100 * dollar(KUSD))
-
-	auction_debit {
-		CdpTreasury::on_system_debit(100 * dollar(KUSD))?;
-	}: _(RawOrigin::Root, 100 * dollar(KUSD), 200 * dollar(KAR))
-
 	auction_collateral {
 		let currency_id: CurrencyId = KSM;
 		Currencies::deposit(currency_id, &CdpTreasury::account_id(), 10_000 * dollar(currency_id))?;
 	}: _(RawOrigin::Root, currency_id, 1_000 * dollar(currency_id), 1_000 * dollar(KUSD), true)
 
-	set_collateral_auction_maximum_size {
+	set_expected_collateral_auction_size {
 		let currency_id: CurrencyId = KSM;
 	}: _(RawOrigin::Root, currency_id, 200 * dollar(currency_id))
+
+	extract_surplus_to_treasury {
+		CdpTreasury::on_system_surplus(1_000 * dollar(KUSD))?;
+	}: _(RawOrigin::Root, 200 * dollar(KUSD))
 }
 
 #[cfg(test)]
@@ -60,20 +56,6 @@ mod tests {
 	}
 
 	#[test]
-	fn test_auction_surplus() {
-		new_test_ext().execute_with(|| {
-			assert_ok!(test_benchmark_auction_surplus());
-		});
-	}
-
-	#[test]
-	fn test_auction_debit() {
-		new_test_ext().execute_with(|| {
-			assert_ok!(test_benchmark_auction_debit());
-		});
-	}
-
-	#[test]
 	fn test_auction_collateral() {
 		new_test_ext().execute_with(|| {
 			assert_ok!(test_benchmark_auction_collateral());
@@ -81,9 +63,16 @@ mod tests {
 	}
 
 	#[test]
-	fn test_set_collateral_auction_maximum_size() {
+	fn test_set_expected_collateral_auction_size() {
 		new_test_ext().execute_with(|| {
-			assert_ok!(test_benchmark_set_collateral_auction_maximum_size());
+			assert_ok!(test_benchmark_set_expected_collateral_auction_size());
+		});
+	}
+
+	#[test]
+	fn test_extract_surplus_to_treasury() {
+		new_test_ext().execute_with(|| {
+			assert_ok!(test_benchmark_extract_surplus_to_treasury());
 		});
 	}
 }

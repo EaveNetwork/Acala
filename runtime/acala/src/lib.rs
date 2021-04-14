@@ -46,7 +46,7 @@ use sp_runtime::{
 		AccountIdConversion, BadOrigin, BlakeTwo256, Block as BlockT, Convert, SaturatedConversion, StaticLookup, Zero,
 	},
 	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, DispatchResult, FixedPointNumber, ModuleId,
+	ApplyExtrinsicResult, DispatchResult, FixedPointNumber,
 };
 use sp_std::prelude::*;
 #[cfg(feature = "std")]
@@ -87,7 +87,7 @@ pub use frame_support::{
 		Randomness, U128CurrencyToVote,
 	},
 	weights::{constants::RocksDbWeight, IdentityFee, Weight},
-	StorageValue,
+	PalletId, StorageValue,
 };
 
 pub use pallet_timestamp::Call as TimestampCall;
@@ -98,8 +98,8 @@ pub use sp_runtime::{Perbill, Percent, Permill, Perquintill};
 pub use authority::AuthorityConfigImpl;
 pub use constants::{fee::*, time::*};
 pub use primitives::{
-	AccountId, AccountIndex, Amount, AuctionId, AuthoritysOriginId, Balance, BlockNumber, CurrencyId, DataProviderId,
-	EraIndex, Hash, Moment, Nonce, Share, Signature, TokenSymbol, TradingPair,
+	evm::EstimateResourcesRequest, AccountId, AccountIndex, Amount, AuctionId, AuthoritysOriginId, Balance,
+	BlockNumber, CurrencyId, DataProviderId, EraIndex, Hash, Moment, Nonce, Share, Signature, TokenSymbol, TradingPair,
 };
 pub use runtime_common::{
 	cent, deposit, dollar, microcent, millicent, CurveFeeModel, ExchangeRate, GasToWeight, OffchainSolutionWeightLimit,
@@ -137,31 +137,32 @@ impl_opaque_keys! {
 
 // Pallet accounts of runtime
 parameter_types! {
-	pub const AcalaTreasuryModuleId: ModuleId = ModuleId(*b"aca/trsy");
-	pub const LoansModuleId: ModuleId = ModuleId(*b"aca/loan");
-	pub const DEXModuleId: ModuleId = ModuleId(*b"aca/dexm");
-	pub const CDPTreasuryModuleId: ModuleId = ModuleId(*b"aca/cdpt");
-	pub const StakingPoolModuleId: ModuleId = ModuleId(*b"aca/stkp");
-	pub const HonzonTreasuryModuleId: ModuleId = ModuleId(*b"aca/hztr");
-	pub const HomaTreasuryModuleId: ModuleId = ModuleId(*b"aca/hmtr");
-	pub const IncentivesModuleId: ModuleId = ModuleId(*b"aca/inct");
+	pub const AcalaTreasuryPalletId: PalletId = PalletId(*b"aca/trsy");
+	pub const LoansPalletId: PalletId = PalletId(*b"aca/loan");
+	pub const DEXPalletId: PalletId = PalletId(*b"aca/dexm");
+	pub const CDPTreasuryPalletId: PalletId = PalletId(*b"aca/cdpt");
+	pub const StakingPoolPalletId: PalletId = PalletId(*b"aca/stkp");
+	pub const HonzonTreasuryPalletId: PalletId = PalletId(*b"aca/hztr");
+	pub const HomaTreasuryPalletId: PalletId = PalletId(*b"aca/hmtr");
+	pub const IncentivesPalletId: PalletId = PalletId(*b"aca/inct");
 	// Decentralized Sovereign Wealth Fund
-	pub const DSWFModuleId: ModuleId = ModuleId(*b"aca/dswf");
-	pub const ElectionsPhragmenModuleId: LockIdentifier = *b"aca/phre";
-	pub const NftModuleId: ModuleId = ModuleId(*b"aca/aNFT");
+	pub const DSWFPalletId: PalletId = PalletId(*b"aca/dswf");
+	pub const ElectionsPhragmenPalletId: LockIdentifier = *b"aca/phre";
+	pub const NftPalletId: PalletId = PalletId(*b"aca/aNFT");
+	pub UnreleasedNativeVaultAccountId: AccountId = PalletId(*b"aca/urls").into_account();
 }
 
 pub fn get_all_module_accounts() -> Vec<AccountId> {
 	vec![
-		AcalaTreasuryModuleId::get().into_account(),
-		LoansModuleId::get().into_account(),
-		DEXModuleId::get().into_account(),
-		CDPTreasuryModuleId::get().into_account(),
-		StakingPoolModuleId::get().into_account(),
-		HonzonTreasuryModuleId::get().into_account(),
-		HomaTreasuryModuleId::get().into_account(),
-		IncentivesModuleId::get().into_account(),
-		DSWFModuleId::get().into_account(),
+		AcalaTreasuryPalletId::get().into_account(),
+		LoansPalletId::get().into_account(),
+		DEXPalletId::get().into_account(),
+		CDPTreasuryPalletId::get().into_account(),
+		StakingPoolPalletId::get().into_account(),
+		HonzonTreasuryPalletId::get().into_account(),
+		HomaTreasuryPalletId::get().into_account(),
+		IncentivesPalletId::get().into_account(),
+		DSWFPalletId::get().into_account(),
 		ZeroAccountId::get(),
 	]
 }
@@ -508,7 +509,7 @@ parameter_types! {
 }
 
 impl pallet_treasury::Config for Runtime {
-	type ModuleId = AcalaTreasuryModuleId;
+	type PalletId = AcalaTreasuryPalletId;
 	type Currency = Balances;
 	type ApproveOrigin = EnsureRootOrHalfGeneralCouncil;
 	type RejectOrigin = EnsureRootOrHalfGeneralCouncil;
@@ -592,7 +593,7 @@ parameter_types! {
 }
 
 impl pallet_elections_phragmen::Config for Runtime {
-	type ModuleId = ElectionsPhragmenModuleId;
+	type PalletId = ElectionsPhragmenPalletId;
 	type Event = Event;
 	type Currency = CurrencyAdapter<Runtime, GetLiquidCurrencyId>;
 	type CurrencyToVote = U128CurrencyToVote;
@@ -660,7 +661,7 @@ parameter_type_with_key! {
 }
 
 parameter_types! {
-	pub TreasuryModuleAccount: AccountId = AcalaTreasuryModuleId::get().into_account();
+	pub AcalaTreasuryAccount: AccountId = AcalaTreasuryPalletId::get().into_account();
 }
 
 impl orml_tokens::Config for Runtime {
@@ -670,7 +671,7 @@ impl orml_tokens::Config for Runtime {
 	type CurrencyId = CurrencyId;
 	type WeightInfo = weights::orml_tokens::WeightInfo<Runtime>;
 	type ExistentialDeposits = ExistentialDeposits;
-	type OnDust = orml_tokens::TransferDust<Runtime, TreasuryModuleAccount>;
+	type OnDust = orml_tokens::TransferDust<Runtime, AcalaTreasuryAccount>;
 }
 
 parameter_types! {
@@ -719,9 +720,9 @@ impl EnsureOrigin<Origin> for EnsureRootOrAcalaTreasury {
 
 	fn try_origin(o: Origin) -> Result<Self::Success, Origin> {
 		Into::<Result<RawOrigin<AccountId>, Origin>>::into(o).and_then(|o| match o {
-			RawOrigin::Root => Ok(AcalaTreasuryModuleId::get().into_account()),
+			RawOrigin::Root => Ok(AcalaTreasuryPalletId::get().into_account()),
 			RawOrigin::Signed(caller) => {
-				if caller == AcalaTreasuryModuleId::get().into_account() {
+				if caller == AcalaTreasuryPalletId::get().into_account() {
 					Ok(caller)
 				} else {
 					Err(Origin::from(Some(caller)))
@@ -791,7 +792,6 @@ impl module_auction_manager::Config for Runtime {
 	type AuctionTimeToClose = AuctionTimeToClose;
 	type AuctionDurationSoftCap = AuctionDurationSoftCap;
 	type GetStableCurrencyId = GetStableCurrencyId;
-	type GetNativeCurrencyId = GetNativeCurrencyId;
 	type CDPTreasury = CdpTreasury;
 	type DEX = Dex;
 	type PriceSource = Prices;
@@ -806,7 +806,7 @@ impl module_loans::Config for Runtime {
 	type Currency = Currencies;
 	type RiskManager = CdpEngine;
 	type CDPTreasury = CdpTreasury;
-	type ModuleId = LoansModuleId;
+	type PalletId = LoansPalletId;
 	type OnUpdateLoan = module_incentives::OnUpdateLoan<Runtime>;
 }
 
@@ -931,7 +931,7 @@ impl module_dex::Config for Runtime {
 	type Currency = Currencies;
 	type GetExchangeFee = GetExchangeFee;
 	type TradingPathLimit = TradingPathLimit;
-	type ModuleId = DEXModuleId;
+	type PalletId = DEXPalletId;
 	type DEXIncentives = Incentives;
 	type WeightInfo = weights::module_dex::WeightInfo<Runtime>;
 	type ListingOrigin = EnsureRootOrHalfGeneralCouncil;
@@ -939,6 +939,7 @@ impl module_dex::Config for Runtime {
 
 parameter_types! {
 	pub const MaxAuctionsCount: u32 = 100;
+	pub HonzonTreasuryAccount: AccountId = HonzonTreasuryPalletId::get().into_account();
 }
 
 impl module_cdp_treasury::Config for Runtime {
@@ -949,7 +950,8 @@ impl module_cdp_treasury::Config for Runtime {
 	type UpdateOrigin = EnsureRootOrHalfHonzonCouncil;
 	type DEX = Dex;
 	type MaxAuctionsCount = MaxAuctionsCount;
-	type ModuleId = CDPTreasuryModuleId;
+	type PalletId = CDPTreasuryPalletId;
+	type TreasuryAccount = HonzonTreasuryAccount;
 	type WeightInfo = weights::module_cdp_treasury::WeightInfo<Runtime>;
 }
 
@@ -996,17 +998,18 @@ parameter_types! {
 impl module_incentives::Config for Runtime {
 	type Event = Event;
 	type RelaychainAccountId = AccountId;
+	type NativeRewardsSource = UnreleasedNativeVaultAccountId;
 	type RewardsVaultAccountId = ZeroAccountId;
 	type NativeCurrencyId = GetNativeCurrencyId;
 	type StableCurrencyId = GetStableCurrencyId;
 	type LiquidCurrencyId = GetLiquidCurrencyId;
 	type AccumulatePeriod = AccumulatePeriod;
-	type UpdateOrigin = EnsureRootOrHalfHonzonCouncil;
+	type UpdateOrigin = EnsureRootOrThreeFourthsGeneralCouncil;
 	type CDPTreasury = CdpTreasury;
 	type Currency = Currencies;
 	type DEX = Dex;
 	type EmergencyShutdown = EmergencyShutdown;
-	type ModuleId = IncentivesModuleId;
+	type PalletId = IncentivesPalletId;
 	type WeightInfo = weights::module_incentives::WeightInfo<Runtime>;
 }
 
@@ -1035,7 +1038,7 @@ impl module_staking_pool::Config for Runtime {
 	type StakingCurrencyId = GetStakingCurrencyId;
 	type LiquidCurrencyId = GetLiquidCurrencyId;
 	type DefaultExchangeRate = DefaultExchangeRate;
-	type ModuleId = StakingPoolModuleId;
+	type PalletId = StakingPoolPalletId;
 	type PoolAccountIndexes = PoolAccountIndexes;
 	type UpdateOrigin = EnsureRootOrHalfHomaCouncil;
 	type FeeModel = CurveFeeModel;
@@ -1096,7 +1099,7 @@ impl module_nft::Config for Runtime {
 	type Event = Event;
 	type CreateClassDeposit = CreateClassDeposit;
 	type CreateTokenDeposit = CreateTokenDeposit;
-	type ModuleId = NftModuleId;
+	type PalletId = NftPalletId;
 	type WeightInfo = weights::module_nft::WeightInfo<Runtime>;
 }
 
@@ -1201,7 +1204,7 @@ impl module_evm::Config for Runtime {
 	type NetworkContractSource = NetworkContractSource;
 	type DeveloperDeposit = DeveloperDeposit;
 	type DeploymentFee = DeploymentFee;
-	type TreasuryAccount = TreasuryModuleAccount;
+	type TreasuryAccount = AcalaTreasuryAccount;
 	type FreeDeploymentOrigin = EnsureRootOrHalfGeneralCouncil;
 	type WeightInfo = weights::module_evm::WeightInfo<Runtime>;
 }
@@ -1600,7 +1603,6 @@ impl_runtime_apis! {
 		fn get_value(provider_id: DataProviderId ,key: CurrencyId) -> Option<TimeStampedPrice> {
 			match provider_id {
 				DataProviderId::Acala => AcalaOracle::get_no_op(&key),
-				DataProviderId::Band => BandOracle::get_no_op(&key),
 				DataProviderId::Aggregated => <AggregatedDataProvider as DataProviderExtended<_, _>>::get_no_op(&key)
 			}
 		}
@@ -1608,7 +1610,6 @@ impl_runtime_apis! {
 		fn get_all_values(provider_id: DataProviderId) -> Vec<(CurrencyId, Option<TimeStampedPrice>)> {
 			match provider_id {
 				DataProviderId::Acala => AcalaOracle::get_all_values(),
-				DataProviderId::Band => BandOracle::get_all_values(),
 				DataProviderId::Aggregated => <AggregatedDataProvider as DataProviderExtended<_, _>>::get_all_values()
 			}
 		}
@@ -1636,7 +1637,7 @@ impl_runtime_apis! {
 			to: H160,
 			data: Vec<u8>,
 			value: Balance,
-			gas_limit: u32,
+			gas_limit: u64,
 			storage_limit: u32,
 			estimate: bool,
 		) -> Result<CallInfo, sp_runtime::DispatchError> {
@@ -1654,7 +1655,7 @@ impl_runtime_apis! {
 				to,
 				data,
 				value,
-				gas_limit.into(),
+				gas_limit,
 				storage_limit,
 				config.as_ref().unwrap_or(<Runtime as module_evm::Config>::config()),
 			)
@@ -1664,7 +1665,7 @@ impl_runtime_apis! {
 			from: H160,
 			data: Vec<u8>,
 			value: Balance,
-			gas_limit: u32,
+			gas_limit: u64,
 			storage_limit: u32,
 			estimate: bool,
 		) -> Result<CreateInfo, sp_runtime::DispatchError> {
@@ -1680,12 +1681,42 @@ impl_runtime_apis! {
 				from,
 				data,
 				value,
-				gas_limit.into(),
+				gas_limit,
 				storage_limit,
 				config.as_ref().unwrap_or(<Runtime as module_evm::Config>::config()),
 			)
 		}
 
+		fn get_estimate_resources_request(extrinsic: Vec<u8>) -> Result<EstimateResourcesRequest, sp_runtime::DispatchError> {
+			let utx = UncheckedExtrinsic::decode(&mut &*extrinsic)
+				.map_err(|_| sp_runtime::DispatchError::Other("Invalid parameter extrinsic, decode failed"))?;
+
+			let request = match utx.function {
+				Call::EVM(module_evm::Call::call(to, data, value, gas_limit, storage_limit)) => {
+					Some(EstimateResourcesRequest {
+						from: None,
+						to: Some(to),
+						gas_limit: Some(gas_limit),
+						storage_limit: Some(storage_limit),
+						value: Some(value),
+						data: Some(data),
+					})
+				}
+				Call::EVM(module_evm::Call::create(data, value, gas_limit, storage_limit)) => {
+					Some(EstimateResourcesRequest {
+						from: None,
+						to: None,
+						gas_limit: Some(gas_limit),
+						storage_limit: Some(storage_limit),
+						value: Some(value),
+						data: Some(data),
+					})
+				}
+				_ => None,
+			};
+
+			request.ok_or(sp_runtime::DispatchError::Other("Invalid parameter extrinsic, not evm Call"))
+		}
 	}
 
 
@@ -1696,10 +1727,9 @@ impl_runtime_apis! {
 			config: frame_benchmarking::BenchmarkConfig
 		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
 			use frame_benchmarking::{Benchmarking, BenchmarkBatch, add_benchmark, TrackedStorageKey};
-			use orml_benchmarking::{add_benchmark as orml_add_benchmark};
+			// use orml_benchmarking::{add_benchmark as orml_add_benchmark};
 
 			use module_nft::benchmarking::Pallet as NftBench;
-			impl module_nft::benchmarking::Config for Runtime {}
 
 			let whitelist: Vec<TrackedStorageKey> = vec![
 				// Block Number
